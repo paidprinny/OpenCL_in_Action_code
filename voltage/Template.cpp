@@ -46,30 +46,34 @@ initializeHost(void)
         std::cout << "Error: Failed to allocate input memory on host\n";
         return SDK_FAILURE;
     }
-	int sqrtwidth = (int)sqrt(width);
+	cl_uint i;
+	cl_uint sqrtwidth = (unsigned int)sqrt(width);
 	// Top row initialized to 1.0 volts.
-	for (int i = 0; i < sqrtwidth; ++i) {
+	for ( i = 0; i < sqrtwidth; ++i) {
 		input[i] = 1.0;
 	}
 
 	// Bottom row initialized to 0.0 volts.
-	for (int i = width - sqrtwidth; i < width; ++i) {
+	for ( i = width - sqrtwidth; i < width; ++i) {
 		input[i] = 0.0;
 	}
 
 	// Left side initialized to 0.25 volts.
-	for (int i = 0; i < width; i += sqrtwidth) {
+	// Right side initialized to 0.75 volts, because we can and it speeds up our process.
+	for (i = 0; i < width; i += sqrtwidth) {
 		input[i] = 0.25;
+		input[i+sqrtwidth-1] = 0.75;
 	}
-
+	
 	// Right side initialized to 0.75 volts.
-	for (int i = sqrtwidth - 1; i < width; i += sqrtwidth) {
-		input[i] = 0.75;
-	}
+	/*for (i = sqrtwidth - 1; i < width; i += sqrtwidth) {
+		
+		//std::cout << "The value of i is " << i << "and the value of input[i] is " << input[i] << std::endl;
+	}*/
 
 	// Zero out the interior of current. The interior of next will be overwritten during each pass.
-	for (int i = sqrtwidth + 1; i < width - 1 - sqrtwidth; i++){
-		if (!(i % 1000 == 0) || !((i + 1) % 1000 == 0))
+	for ( i = sqrtwidth + 1; i < width - 1 - sqrtwidth; i++){
+		if (!(i % 1000 == 0) && !((i + 1) % 1000 == 0))
 			input[i] = 0;
 	}
 	
@@ -77,7 +81,7 @@ initializeHost(void)
 
 
     // print input array
-    print1DArray(std::string("Input").c_str(), input, width);
+   print1DArray(std::string("Input").c_str(), input, width);
     return SDK_SUCCESS;
 }
 
@@ -134,6 +138,8 @@ convertToString(const char *filename)
 int
 initializeCL(void)
 {
+	char * program_log;
+	size_t log_size;
     cl_int status = 0;
     size_t deviceListSize;
 
@@ -338,10 +344,17 @@ initializeCL(void)
     status = clBuildProgram(program, 1, devices, NULL, NULL, NULL);
     if(status != CL_SUCCESS) 
     { 
-        std::cout << "Error: Building Program (clBuildProgram)\n";
+		clGetProgramBuildInfo(program, *devices, CL_PROGRAM_BUILD_LOG,
+			0, NULL, &log_size);
+		program_log = (char*)calloc(log_size + 1, sizeof(char));
+		clGetProgramBuildInfo(program, *devices, CL_PROGRAM_BUILD_LOG,
+			log_size + 1, program_log, NULL);
+		printf("%s\n", program_log);
+		free(program_log);
+       // std::cout << "Error: Building Program (clBuildProgram)\n";
         return SDK_FAILURE; 
     }
-
+	
     // get a kernel object handle for a kernel with the given name
     kernel = clCreateKernel(program, "templateKernel", &status);
     if(status != CL_SUCCESS) 
@@ -641,13 +654,15 @@ void print1DArray(
 
     std::cout << std::endl;
     std::cout << arrayName << ":" << std::endl;
-    for(i = 0; i < width; ++i)
-    {
-        std::cout << arrayData[i] << " ";
-		if (i % 1000 == 0)
-			std::cout << "\n";
+    for(i = 0; i < length; ++i)
+    {	
+		
+		std::cout << arrayData[i] << " == " << i << " ";
+		if ((i+1)%1000 == 0)
+			std::cout << std::endl;
+	
     }
-    std::cout << std::endl;
+    
 
 }
 
@@ -673,7 +688,7 @@ main(int argc, char * argv[])
 
     // Releases OpenCL resources 
     if(cleanupCL()!= SDK_SUCCESS)
-        return SDK_FAILURE;
+       return SDK_FAILURE;
 
     // Release host resources
     cleanupHost();

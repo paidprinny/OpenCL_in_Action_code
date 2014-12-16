@@ -20,38 +20,43 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  */
 
 
-__kernel void templateKernel(__global  unsigned int * output,
-                             __global  unsigned int * input
+__kernel void templateKernel(__global  double * output,
+                             __global  double * input
 														   )
 {
 //250 is the number of units.
 //starting at 4, and calculating i to i*250 for the right access.
-	sqrtwidth=1000;
+	int sqrtwidth=1000; //TODO: pass this in
+	int numUnits =250; //TODO: pass this in.
     uint tid = get_global_id(0);
+	printf( " %d ",  tid);
 	int calcI =0;
+	double temp = 0.0;
+	bool found_big_change = false;
 	while(1)
 	{
+	found_big_change = false;
 		for(int i = 4; i<3996; i++) //start at 1000, go to 999000. 
 		{
-			 calcI = i*250+tid;
-			if(calcI%1000 == 0 || calcI+1 %1000 ==0)
-			continue;
+			
+			 calcI = (i*numUnits)+tid;
+			if(calcI%1000 == 0 || (calcI+1) %1000 == 0 || calcI <=sqrtwidth || calcI >=(sqrtwidth*sqrtwidth)-sqrtwidth)
+				continue;
 			temp = ( input[calcI-1] + input[calcI+1] + input[calcI+sqrtwidth] + input[calcI-sqrtwidth] ) / 4.0;
 						if( !found_big_change && fabs( ( temp - input[calcI] ) / input[calcI] ) > 1.0E-2 ) {
-							found_big_change = TRUE;
+							found_big_change = true;
 						}
 						input[calcI] = temp;
-			}
+			
 			
         }
 		if( !found_big_change ) {
-            printf( "FINISHED!" );
             break;
 		}
-
+	}
 		for(int i = 4; i<3996; i++) //start at 1000, go to 999000. 
 		{
-			calcI = i*250+tid;
+			calcI = (i*numUnits)+tid;
 			output[calcI] = input[calcI];
 		}
 }
