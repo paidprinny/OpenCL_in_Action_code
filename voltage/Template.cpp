@@ -59,7 +59,7 @@ initializeHost(void)
 	}
 
 	// Left side initialized to 0.25 volts.
-	// Right side initialized to 0.75 volts, because we can and it speeds up our process.
+	// Right side initialized to 0.75 volts, because we can and it speeds up our process..
 	for (i = 0; i < width; i += sqrtwidth) {
 		input[i] = 0.25;
 		input[i+sqrtwidth-1] = 0.75;

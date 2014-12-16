@@ -29,13 +29,15 @@ __kernel void templateKernel(__global  double * output,
 	int sqrtwidth=1000; //TODO: pass this in
 	int numUnits =250; //TODO: pass this in.
     uint tid = get_global_id(0);
-	printf( " %d ",  tid);
+	int iterations=0;
 	int calcI =0;
 	double temp = 0.0;
 	bool found_big_change = false;
 	while(1)
 	{
 	found_big_change = false;
+		for(int p =0; p<500; p++)
+		{
 		for(int i = 4; i<3996; i++) //start at 1000, go to 999000. 
 		{
 			
@@ -48,13 +50,17 @@ __kernel void templateKernel(__global  double * output,
 						}
 						input[calcI] = temp;
 			
-			
+		
         }
+		}//Placing the barrier here gives better results, takes a bit more time, and oh, let's not forget about the high likelihood of getting so close to zero that zero exists.
+			barrier(CLK_GLOBAL_MEM_FENCE);
+		iterations++;
+		printf("iteration #%d complete for id %d\n", iterations, tid);
 		if( !found_big_change ) {
             break;
 		}
 	}
-		for(int i = 4; i<3996; i++) //start at 1000, go to 999000. 
+		for(int i = 0; i<4000; i++) //start at 1000, go to 999000. 
 		{
 			calcI = (i*numUnits)+tid;
 			output[calcI] = input[calcI];

@@ -107,7 +107,7 @@ void cleanupHost(void);
  */
 void print1DArray(
          const std::string arrayName, 
-         const double * arrayData, 
+         const double  * arrayData, 
          const unsigned int length);
 
 
