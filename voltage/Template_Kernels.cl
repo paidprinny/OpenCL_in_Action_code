@@ -26,15 +26,15 @@ __kernel void templateKernel(__global  double * output,
 {
 //250 is the number of units.
 //starting at 4, and calculating i to i*250 for the right access.
-	int sqrtwidth=1000;                             //TODO: pass this in This is the sqrt of the entire array size. (sqrt(1,000,000) == 1000 )
-	int numUnits =250;                              //TODO: pass this in. This is the number of threads that are requested to be working on this program.         
+    int sqrtwidth=1000;                             //TODO: pass this in This is the sqrt of the entire array size. (sqrt(1,000,000) == 1000 )
+    int numUnits =250;                              //TODO: pass this in. This is the number of threads that are requested to be working on this program.         
     uint tid = get_global_id(0);                    // The id of the device
-	int calcI =0;                                   // this will hold the calculated value of i. 
-	int iterations=0;                               //number of iterations
-	double temp = 0.0;
-	bool found_big_change = false;
-	while(1)
-	{
+    int calcI =0;                                   // this will hold the calculated value of i. 
+    int iterations=0;                               //number of iterations
+    double temp = 0.0;
+    bool found_big_change = false;
+    while(1)
+    {
 	    found_big_change = false;
 	    for(int p =0; p<500; p++)
 	    {
