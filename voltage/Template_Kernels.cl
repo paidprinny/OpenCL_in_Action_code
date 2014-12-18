@@ -33,12 +33,8 @@ __kernel void templateKernel(__global  double * output,
     int iterations=0;                                            //number of iterations
     double temp = 0.0;                                           //temporary value for storage
     bool found_big_change = false;				                 //check if we need to stop.
-	int start_row = (sqrtwidth/numUnits)*tid*sqrtwidth;	         //position to start. "row" is conceptual. Needed to multiply by sqrtwidth
-	int end_row   = (sqrtwidth/numUnits*sqrtwidth)+start_row;    //row to end on.
-	double localArray[6000];                                     //can't figure out how to get the magic number to go away at the moment.
-    int loopCounter = 5000;
-    if(tid==0 || tid==249)//catch the first and last threads
-       loopCounter = 4000;
+    int start_row = (sqrtwidth/numUnits)*tid*sqrtwidth;	         //position to start. "row" is conceptual. Needed to multiply by sqrtwidth
+    int end_row   = ((sqrtwidth/numUnits)*sqrtwidth)+start_row;  //row to end on.
 
      /* Okay, let's do this right. Inside the loop, I'm going to pull from global into local,
         and perform all the calculations in local. After 500 runs through, I should have a reasonably
@@ -47,74 +43,31 @@ __kernel void templateKernel(__global  double * output,
      so that they don't overwrite the static value. */  
     while(1)
     {
-	    if(tid==0)
-           for(int i =0; i<5000; i++)
-               localArray[i]=input[i];
-        else if(tid==249)
-        {
-           int r =0;
-           for(int i = start_row-sqrtwidth; i<end_row; i++)
-               {
-                  localArray[r] = input[i];
-                  r++;
-               }
-        }
-        else
-        {
-           int r =0;
-	       for(int i= start_row-sqrtwidth; i<end_row+sqrtwidth; i++)
-           {
-	         localArray[r]= input[i];
-             r++;
-           }
-        }
 		barrier(CLK_GLOBAL_MEM_FENCE);
 	    found_big_change = false;
 	    for(int p =0; p<500; p++)// 500 seems to be a good one.
 	    {
-	      for(int i = sqrtwidth; i<loopCounter; i++)  // Ignore the first and last "rows" in our local array, they're for access only.'
+	      for(int i = start_row; i<end_row; i++)  // Ignore the first and last "rows" in our local array, they're for access only.'
 	         {
-	           if(i % 1000 == 0 || (i+1) % 1000 == 0)
+	           if(i % 1000 == 0 || (i+1) % 1000 == 0 || i < 1000 || i > 999000)
 			       continue;
-	           temp = ( localArray[i-1] + localArray[i+1] + localArray[i+sqrtwidth] + localArray[i-sqrtwidth] ) / 4.0;
-	           if( !found_big_change && fabs( ( temp - localArray[i] ) / localArray[i] ) > 1.0E-2 )
+	           temp = ( input[i-1] + input[i+1] + input[i+sqrtwidth] + input[i-sqrtwidth] ) / 4.0;
+	           if( !found_big_change && fabs( ( temp - input[i] ) / input[i] ) > 1.0E-2 )
 	               found_big_change = true;
-	        localArray[i] = temp;		
-          }
+	           input[i] = temp;
+			  barrier(CLK_GLOBAL_MEM_FENCE); // per 500 times, check this once.		
+             }
+            
 	    }
-	  //Placing the barrier here gives better results, takes a bit more time, and oh, let's not forget about the high likelihood of getting so close to zero that zero exists.
-	  barrier(CLK_GLOBAL_MEM_FENCE);
+		  
 	  iterations++;
-      if(tid==0)
-           for(int i =sqrtwidth; i<4000; i++)
-               input[i]=localArray[i];
-      else if(tid==249)
-      {
-           int r =sqrtwidth;
-           for(int i = start_row; i<end_row-sqrtwidth; i++)
-               {
-                  input[i] = localArray[r];
-                  r++;
-               }
-      }
-      else
-      {
-           int r =sqrtwidth;
-	       for(int i= start_row; i<end_row; i++)
-           {
-	         input[i]= localArray[r];
-             r++;
-           }
-      }
 	  printf("iteration #%d complete for id %d\n", iterations, tid);
 	  if( !found_big_change ) 
       {
          break;
 	  }
 	}
-	for(int i = 0; i<4000; i++) //start at 1000, go to 999000. 
-	{
-	    calcI = (i*numUnits)+tid;
-	    output[calcI] = input[calcI];
-	}
+	for(int i = start_row; i<end_row; i++)   
+	    output[i] = input[i];
+	
 }
