@@ -26,36 +26,73 @@ __kernel void templateKernel(__global  double * output,
 {
 //250 is the number of units.
 //starting at 4, and calculating i to i*250 for the right access.
-    int sqrtwidth=1000;                             //TODO: pass this in This is the sqrt of the entire array size. (sqrt(1,000,000) == 1000 )
-    int numUnits =250;                              //TODO: pass this in. This is the number of threads that are requested to be working on this program.         
-    uint tid = get_global_id(0);                    // The id of the device
-    int calcI =0;                                   // this will hold the calculated value of i. 
-    int iterations=0;                               //number of iterations
-    double temp = 0.0;
-    bool found_big_change = false;
+    int sqrtwidth=1000;                                          //TODO: pass this in This is the sqrt of the entire array size. (sqrt(1,000,000) == 1000 )
+    int numUnits =250;                                           //TODO: pass this in. This is the number of threads that are requested to be working on this program.         
+    uint tid = get_global_id(0);                                 //The id of the device
+    int calcI =0;                                                //this will hold the calculated value of i. 
+    int iterations=0;                                            //number of iterations
+    double temp = 0.0;                                           //temporary value for storage
+    bool found_big_change = false;				                 //check if we need to stop.
+	int start_row = (sqrtwidth/numUnits)*tid*sqrtwidth;	         //position to start. "row" is conceptual. Needed to multiply by sqrtwidth
+	int end_row   = (sqrtwidth/numUnits*sqrtwidth)+start_row;    //row to end on.
+	double localArray[6000];                                     //can't figure out how to get the magic number to go away at the moment.
+    int loopCounter = 5000;
+    if(tid==0 || tid==249)//catch the first and last threads
+       loopCounter = 4000;
+
+     /* Okay, let's do this right. Inside the loop, I'm going to pull from global into local,
+        and perform all the calculations in local. After 500 runs through, I should have a reasonably
+        uniform answer, which will let me incorporate the next processor's row into my data. */
+  /* Adding this is going to need me to make specific commands for the first and last thread
+     so that they don't overwrite the static value. */  
     while(1)
     {
+	    if(tid==0)
+           for(int i =0; i<5000; i++)
+               localArray[i]=input[i];
+        else if(tid==249)
+           for(int i = start_row-sqrtwidth, int r =0; i<end_row; i++)
+               {
+                  localArray[r] = input[i];
+                  r++
+               }
+        else
+	       for(int i= start_row-sqrtwidth, int r =0; i<end_row+sqrtwidth; i++)
+           {
+	         localArray[r]= input[i];
+             r++;
+           }
+		barrier(CLK_GLOBAL_MEM_FENCE);
 	    found_big_change = false;
-	    for(int p =0; p<500; p++)
+	    for(int p =0; p<500; p++)// 500 seems to be a good one.
 	    {
-	        for(int i = 4; i<3996; i++) //start at 1000, go to 999000. 
-	        {
-	        calcI = (i*numUnits)+tid;
-	        if(calcI%1000 == 0 || (calcI+1) %1000 == 0 || calcI <=sqrtwidth || calcI >=(sqrtwidth*sqrtwidth)-sqrtwidth)
-	            continue;
-	        temp = ( input[calcI-1] + input[calcI+1] + input[calcI+sqrtwidth] + input[calcI-sqrtwidth] ) / 4.0;
-	        if( !found_big_change && fabs( ( temp - input[calcI] ) / input[calcI] ) > 1.0E-2 ) 
-		    {
-	           found_big_change = true;
-	        }
-	        input[calcI] = temp;		
+	      for(int i = sqrtwidth; i<loopCounter; i++)  // Ignore the first and last "rows" in our local array, they're for access only.'
+	         {
+	           if(i % 1000 == 0 || (i+1) % 1000 == 0)
+			       continue;
+	           temp = ( localArray[i-1] + localArray[i+1] + localArray[i+sqrtwidth] + localArray[i-sqrtwidth] ) / 4.0;
+	           if( !found_big_change && fabs( ( temp - localArray[i] ) / localArray[i] ) > 1.0E-2 )
+	               found_big_change = true;
+	        localArray[i] = temp;		
           }
 	    }
 	  //Placing the barrier here gives better results, takes a bit more time, and oh, let's not forget about the high likelihood of getting so close to zero that zero exists.
 	  barrier(CLK_GLOBAL_MEM_FENCE);
 	  iterations++;
+      if(tid==0)
+           for(int i =0; i<5000; i++)
+               localArray[i]=input[i];
+        else if(tid==249)
+           for(int i = start_row-sqrtwidth; i<end_row; i++)
+               localArray[i] = input[i];
+        else
+	       for(int i= start_row-sqrtwidth; i<end_row+sqrtwidth; i++)
+           {
+	         localArray[i]= input[i];
+           }
 	  printf("iteration #%d complete for id %d\n", iterations, tid);
-	  if( !found_big_change ) {
+	  if( !found_big_change ) 
+      {
          break;
 	  }
 	}
