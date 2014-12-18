@@ -51,17 +51,23 @@ __kernel void templateKernel(__global  double * output,
            for(int i =0; i<5000; i++)
                localArray[i]=input[i];
         else if(tid==249)
-           for(int i = start_row-sqrtwidth, int r =0; i<end_row; i++)
+        {
+           int r =0;
+           for(int i = start_row-sqrtwidth; i<end_row; i++)
                {
                   localArray[r] = input[i];
-                  r++
+                  r++;
                }
+        }
         else
-	       for(int i= start_row-sqrtwidth, int r =0; i<end_row+sqrtwidth; i++)
+        {
+           int r =0;
+	       for(int i= start_row-sqrtwidth; i<end_row+sqrtwidth; i++)
            {
 	         localArray[r]= input[i];
              r++;
            }
+        }
 		barrier(CLK_GLOBAL_MEM_FENCE);
 	    found_big_change = false;
 	    for(int p =0; p<500; p++)// 500 seems to be a good one.
@@ -80,16 +86,26 @@ __kernel void templateKernel(__global  double * output,
 	  barrier(CLK_GLOBAL_MEM_FENCE);
 	  iterations++;
       if(tid==0)
-           for(int i =0; i<5000; i++)
-               localArray[i]=input[i];
-        else if(tid==249)
-           for(int i = start_row-sqrtwidth; i<end_row; i++)
-               localArray[i] = input[i];
-        else
-	       for(int i= start_row-sqrtwidth; i<end_row+sqrtwidth; i++)
+           for(int i =sqrtwidth; i<4000; i++)
+               input[i]=localArray[i];
+      else if(tid==249)
+      {
+           int r =sqrtwidth;
+           for(int i = start_row; i<end_row-sqrtwidth; i++)
+               {
+                  input[i] = localArray[r];
+                  r++;
+               }
+      }
+      else
+      {
+           int r =sqrtwidth;
+	       for(int i= start_row; i<end_row; i++)
            {
-	         localArray[i]= input[i];
+	         input[i]= localArray[r];
+             r++;
            }
+      }
 	  printf("iteration #%d complete for id %d\n", iterations, tid);
 	  if( !found_big_change ) 
       {
