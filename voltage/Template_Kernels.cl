@@ -33,36 +33,42 @@ __kernel void templateKernel(__global  double * output,
     int iterations=0;                                            //number of iterations
     double temp = 0.0;                                           //temporary value for storage
     bool found_big_change = false;                               //check if we need to stop.
-
+    int start_row = (sqrtwidth/numUnits)*tid*sqrtwidth;	         //position to start. "row" is conceptual. Needed to multiply by sqrtwidth
+    int end_row   = ((sqrtwidth/numUnits)*sqrtwidth)+start_row;  //row to end on.
+	bool found_big_change = false;				                 //check if we need to stop.
 while(1)
 	{
+    
+    /* Okay, let's do this right. Inside the loop, I'm going to pull from global into local,
+    and perform all the calculations in local. After 500 runs through, I should have a reasonably
+    uniform answer, which will let me incorporate the next processor's row into my data. */
+  /* Adding this is going to need me to make specific commands for the first and last thread
+     so that they don't overwrite the static value. */  
+    while(1)
+    {
+		barrier(CLK_GLOBAL_MEM_FENCE);
 	    found_big_change = false;
-	    for(int p =0; p<500; p++)
-	    {
-	        for(int i = 4; i<3996; i++) //start at 1000, go to 999000. 
-	        {
-	        calcI = (i*numUnits)+tid;
-	        if(calcI%1000 == 0 || (calcI+1) %1000 == 0 || calcI <=sqrtwidth || calcI >=(sqrtwidth*sqrtwidth)-sqrtwidth)
-	            continue;
-	        temp = ( input[calcI-1] + input[calcI+1] + input[calcI+sqrtwidth] + input[calcI-sqrtwidth] ) / 4.0;
-	        if( !found_big_change && fabs( ( temp - input[calcI] ) / input[calcI] ) > 1.0E-2 ) 
-		    {
-	           found_big_change = true;
-	        }
-	        input[calcI] = temp;	
-          }
-		  //this barrier verifies the place of all threads on the same iteration.
-          barrier(CLK_GLOBAL_MEM_FENCE);
+	      for(int i = start_row; i<end_row; i++)  // Ignore the first and last "rows" in our local array, they're for access only.'
+	         {
+	           if(i % 1000 == 0 || (i+1) % 1000 == 0 || i < 1000 || i > 999000)
+			       continue;
+	           temp = ( input[i-1] + input[i+1] + input[i+sqrtwidth] + input[i-sqrtwidth] ) / 4.0;
+	           if( !found_big_change && fabs( ( temp - input[i] ) / input[i] ) > 1.0E-2 )
+	               found_big_change = true;
+	           input[i] = temp;
+			  barrier(CLK_GLOBAL_MEM_FENCE); // per 500 times, check this once.		
+             }
+            
 	    }
-      iterations++;
-	  if( !found_big_change ) {
-         printf("tid %d exited on iteration %d\n", tid, iterations);
+		  
+	  iterations++;
+	  printf("iteration #%d complete for id %d\n", iterations, tid);
+	  if( !found_big_change ) 
+      {
          break;
 	  }
 	}
-	for(int i = 0; i<4000; i++) //start at 1000, go to 999000. 
-	{
-	    calcI = (i*numUnits)+tid;
-	    output[calcI] = input[calcI];
-	}
+	for(int i = start_row; i<end_row; i++)   
+	    output[i] = input[i];
+	
 }
