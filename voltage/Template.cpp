@@ -81,7 +81,7 @@ initializeHost(void)
 
 
     // print input array
-   print1DArray(std::string("Input").c_str(), input, width);
+   //print1DArray(std::string("Input").c_str(), input, width);
     return SDK_SUCCESS;
 }
 
